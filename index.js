@@ -9,31 +9,33 @@ app.use(cors())
 
 const server = createServer(app)
 const io = new SocketServer(server, {
-    cors: {
-        origin: '*',
-    },
+  cors: {
+    origin: '*',
+  },
 })
 app.use(morgan('dev'))
 
 io.on('connection', (socket) => {
-    socket.ro
+  socket.on('joinRoom', (room) => {
+    socket.join(room)
+  })
 
-    console.log('A user connected', socket.id)
+  socket.on('message', (data) => {
+    const message = {
+      body: data,
+      from: socket.id,
+    }
 
-    socket.on('message', (data) => {
-        console.log('🚀 ~ file: index.js:22 ~ socket.on ~ data:', data)
-        socket.broadcast.emit('message', {
-            body: data,
-            from: socket.id,
-        })
-        // io.emit('message', data)
-    })
+    io.to(data.room).emit('message', message)
 
-    socket.on('disconnect', () => {
-        console.log('A user disconnected')
-    })
+    socket.broadcast.emit('message', message)
+  })
+
+  socket.on('disconnect', () => {
+    console.log('A user disconnected')
+  })
 })
 
 server.listen(4000, () => {
-    console.log('Server is running on port 4000')
+  console.log('Server is running on port 4000')
 })
