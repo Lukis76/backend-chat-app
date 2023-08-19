@@ -17,7 +17,7 @@ export class Gateway {
   @SubscribeMessage('message')
   handleMessage(client: Socket, payload: any): void {
     const message = {
-      date: new Date(),
+      date: new Date().getTime(),
       body: payload.body,
       from: client.id,
     };
