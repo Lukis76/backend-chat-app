@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { CreateRoomDto } from './dto/create-room.dto';
-import { UpdateRoomDto } from './dto/update-room.dto';
+// import { UpdateRoomDto } from './dto/update-room.dto';
 import { Repository } from './room.repository';
 
 @Injectable()
@@ -17,19 +17,24 @@ export class RoomService {
     return await this.repository.createRoom(createRoomDto);
   }
 
-  findAll() {
-    return this.repository.findAllRooms();
+  async findAll() {
+    const result = await this.repository.findAllRooms();
+    console.log(
+      '🚀 ~ file: room.service.ts:23 ~ RoomService ~ findAll ~ result:',
+      result,
+    );
+    return result;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} room`;
-  }
+  // findOne(id: number) {
+  //   return `This action returns a #${id} room`;
+  // }
 
-  update(id: number, updateRoomDto: UpdateRoomDto) {
-    return `This action updates a #${id} room`;
-  }
+  // update(id: number, updateRoomDto: UpdateRoomDto) {
+  //   return `This action updates a #${id} room`;
+  // }
 
-  remove(id: number) {
-    return `This action removes a #${id} room`;
-  }
+  // remove(id: number) {
+  //   return `This action removes a #${id} room`;
+  // }
 }

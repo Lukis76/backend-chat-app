@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export class Repository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {}
 
   async createRoom(createRoomDto: Prisma.RoomCreateInput) {
     return await this.prisma.room.create({
@@ -17,6 +17,11 @@ export class Repository {
   }
 
   async findAllRooms() {
-    return await this.prisma.room.findMany();
+    const result = await this.prisma.room.findMany();
+    console.log(
+      '🚀 ~ file: room.repository.ts:21 ~ Repository ~ findAllRooms ~ result:',
+      result,
+    );
+    return result;
   }
 }
