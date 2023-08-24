@@ -10,35 +10,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Message {
+model Room {
   id Int @id @default(autoincrement())
 
-  // Usuario
+  name String
+
+  users String?
+
+  lastMessage String?
+
+  messages Message[] @relation("RoomMessages")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Message {
+  id Int @id @default(autoincrement())
 
   body String
   from String
 
-  // Relación con Room
+  room   Room @relation("RoomMessages", fields: [roomId], references: [id])
   roomId Int
-  room   Room @relation(fields: [roomId], references: [id])
 
-  creartedAt DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // @@map("messages")
-}
-
-model Room {
-  id Int @id @default(autoincrement())
-
-  name  String @unique
-  image String?
-
-  // Relación con Message
-  messages Message[]
-
-  creartedAt DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // @@map("rooms")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

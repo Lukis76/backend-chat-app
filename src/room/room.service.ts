@@ -1,40 +1,43 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CreateRoomDto } from './dto/create-room.dto';
-// import { UpdateRoomDto } from './dto/update-room.dto';
-import { Repository } from './room.repository';
+import { UpdateRoomDto } from './dto/update-room.dto';
+import { Room, RoomWhereUniqueInput } from './entities/room.entity';
+import { RoomRepository } from './room.repository';
+
+class SearchParams {
+  search: string;
+  take: string;
+  order: string;
+}
 
 @Injectable()
 export class RoomService {
-  constructor(private readonly repository: Repository) {}
-  async create(createRoomDto: CreateRoomDto) {
-    const exist = this.repository.findRoom({ name: createRoomDto.name });
+  constructor(
+    @Inject(RoomRepository)
+    private readonly roomRepository: RoomRepository,
+  ) {}
 
-    if (exist)
-      throw new ForbiddenException(
-        `The room with the name already exists: ${createRoomDto.name}`,
-      );
-
-    return await this.repository.createRoom(createRoomDto);
+  async create(createRoomDto: CreateRoomDto): Promise<Room> {
+    return await this.roomRepository.create({ ...createRoomDto });
   }
 
-  async findAll() {
-    const result = await this.repository.findAllRooms();
-    console.log(
-      '🚀 ~ file: room.service.ts:23 ~ RoomService ~ findAll ~ result:',
-      result,
-    );
-    return result;
+  async searchRooms(searchParams: SearchParams): Promise<Room[]> {
+    // Implementa la lógica de búsqueda aquí utilizando Prisma ORM
+    //TODO: implementar la lìgica de bésqueda aquí y paguinado de rooms con limitacion
+    return await this.roomRepository.findSearch(searchParams);
   }
 
-  // findOne(id: number) {
-  //   return `This action returns a #${id} room`;
-  // }
+  async findOne(where: RoomWhereUniqueInput): Promise<Room> {
+    return await this.roomRepository.findUnique({ where });
+  }
 
-  // update(id: number, updateRoomDto: UpdateRoomDto) {
-  //   return `This action updates a #${id} room`;
-  // }
+  async update(updateRoom: { data: UpdateRoomDto; id: number }) {
+    return await this.roomRepository.update({ ...updateRoom });
+  }
 
-  // remove(id: number) {
-  //   return `This action removes a #${id} room`;
-  // }
+  async remove(id: number) {
+    return await this.roomRepository.remove({
+      id,
+    });
+  }
 }

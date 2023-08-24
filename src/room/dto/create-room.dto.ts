@@ -1,10 +1,5 @@
-import { IsNotEmpty, IsString } from 'class-validator';
-export class CreateRoomDto {
-  @IsNotEmpty()
-  @IsString()
-  name: string;
+import { RoomCreateInput } from '../entities/room.entity';
 
-  @IsNotEmpty()
-  @IsString()
-  image: string;
+export class CreateRoomDto implements RoomCreateInput {
+  name: string;
 }
