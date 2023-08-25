@@ -1,5 +1,6 @@
+import { NotFoundException } from '@nestjs/common';
 import {
-  MessageBody,
+  // MessageBody,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -7,8 +8,15 @@ import {
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChatService } from './chat.service';
-import { JoinToRoomDto } from './dto';
-import { CreateChatDto } from './dto/create-chat.dto';
+import {
+  CreateRoomDto,
+  DeleteRoomDto,
+  JoinToRoomDto,
+  LeaveToRoomDto,
+  NewMessageToRoomDto,
+  ReceivedMessageDto,
+  ViewMessageDto,
+} from './dto';
 
 @WebSocketGateway(4000, {
   cors: {
@@ -23,108 +31,243 @@ export class ChatGateway {
   @WebSocketServer()
   server: Server;
 
-  @SubscribeMessage('jion-to-room')
-  handleJoinToRoom(client: Socket, payload: JoinToRoomDto) {
-    console.log('jion-to-room => ', payload);
-    client.join(`room_${payload.roomId}`);
+  /**
+   *
+   *
+   */
+
+  @SubscribeMessage('event_join')
+  async handleJoin(client: Socket, payload: JoinToRoomDto) {
+    console.log('payload', payload);
+    const theSocketId = client.id;
+
+    if (payload.leave) {
+      this.server.in(theSocketId).socketsLeave(`room_${payload.leave}`);
+    }
+
+    const room = await this.prisma.room.update({
+      where: { id: payload.roomId },
+      data: {
+        userInRoom: {
+          connect: { id: payload.userId },
+        },
+      },
+    });
+    await this.prisma.user.update({
+      where: { id: payload.userId },
+      data: {
+        userInRoom: {
+          connect: { id: payload.roomId },
+        },
+      },
+    });
+
+    console.log('room', room);
+    if (!room) {
+      // this.server.in(theSocketId).socketsLeave(`room_${roomId.id}`);
+      throw new NotFoundException('Invalid room');
+    }
+
+    this.server.socketsJoin(`room_${room.id}`);
   }
 
   /**
    *
    *
-   *
-   *
-   *
-   *
+   */
+
+  @SubscribeMessage('new_message_to_room')
+  async handleNewMessageToRoom(client: Socket, payload: NewMessageToRoomDto) {
+    console.log('payload', payload);
+    const newMessage = await this.prisma.message.create({
+      data: {
+        content: payload.message,
+        user: {
+          connect: { id: payload.userId },
+        },
+        room: {
+          connect: { id: payload.roomId },
+        },
+      },
+    });
+    if (!newMessage) {
+      throw new NotFoundException('Error create message');
+    }
+
+    await this.prisma.room.update({
+      where: { id: newMessage.roomId },
+      data: {
+        lastMessage: newMessage.content,
+      },
+    });
+
+    this.server
+      .to(`room_${newMessage.roomId}`)
+      .emit('new_message_to_room', newMessage);
+  }
+
+  /**
    *
    *
    */
 
-  @SubscribeMessage('event_change_room')
-  async handleJoinRoom(client: Socket, payload: any) {
-    console.log(
-      '🚀 ~ file: chat.gateway.ts:27 ~ ChatGateway ~ handleJoinRoom ~ payload:',
-      payload,
-    );
-    // const theSocketId = client.id;
-    // this.server.in(theSocketId).socketsLeave(`room_${payload.leave}`);
-    // const room = await this.prisma.room.findUnique({
-    //   where: { id: payload.roomId },
-    // });
-    // console.log(
-    //   '🚀 ~ file: chat.gateway.ts:33 ~ ChatGateway ~ handleJoinRoom ~ room:',
-    //   room,
-    // );
-    // if (!room) {
-    //   // this.server.in(theSocketId).socketsLeave(`room_${roomId.id}`);
-    //   throw new NotFoundException('Invalid room');
-    // }
+  @SubscribeMessage('leave_to_room')
+  async handleLeaveToRoom(client: Socket, payload: LeaveToRoomDto) {
+    console.log('payload', payload);
+    const theSocketId = client.id;
 
-    client.join(`room_${payload.roomId}`);
-  }
-
-  @SubscribeMessage('event_message')
-  async handleMessage(client: Socket, payload: any) {
-    console.log(
-      '🚀 ~ file: chat.gateway.ts:42 ~ ChatGateway ~ handleMessage ~ payload:',
-      payload,
-    );
-
-    const message = await this.prisma.message.create({
+    const room = await this.prisma.room.update({
+      where: { id: payload.leaveId },
       data: {
-        body: payload.body,
-        from: client.id,
-        room: { connect: { id: payload.roomId } },
+        userInRoom: {
+          disconnect: { id: payload.userId },
+        },
       },
     });
-    console.log(
-      '🚀 ~ file: chat.gateway.ts:58 ~ ChatGateway ~ handleMessage ~ message:',
-      message,
-    );
+    const user = await this.prisma.user.update({
+      where: { id: payload.userId },
+      data: {
+        userInRoom: {
+          disconnect: { id: payload.leaveId },
+        },
+      },
+    });
+    console.log('room', room);
+    if (!room || !user) {
+      throw new NotFoundException('Disconnect failed');
+    }
+    this.server.in(theSocketId).socketsLeave(`room_${payload.leaveId}`);
 
-    this.server.to(`room_${payload.roomId}`).emit('message', message);
+    console.log('finaly', { room, user });
   }
 
-  @SubscribeMessage('event_leave')
-  handleRoomLeave(client: Socket, room: string) {
-    console.log(`chao room_${room}`);
-    client.leave(`room_${room}`);
-  }
+  /**
+   *
+   *
+   */
 
   @SubscribeMessage('create_room')
-  async create(client: Socket, @MessageBody() createChatDto: CreateChatDto) {
+  async handleJoinRoom(client: Socket, payload: CreateRoomDto) {
+    console.log('payload', payload);
     const room = await this.prisma.room.create({
       data: {
-        name: createChatDto.name,
-        users: createChatDto.users,
+        name: payload.name,
+        // image: payload.image,
+        admin: {
+          connect: { id: payload.adminId },
+        },
+        userInRoom: {
+          connect: { id: payload.adminId },
+        },
       },
     });
-    client.join(`room_${room.id}`);
 
-    // return this.chatService.create(createChatDto);
-  }
+    console.log('room', room);
+    if (!room) {
+      throw new NotFoundException('Invalid room');
+    }
 
-  // @SubscribeMessage('findAllChat')
-  // findAll() {
-  //   return this.chatService.findAll();
-  // }
-
-  // @SubscribeMessage('findOneChat')
-  // findOne(@MessageBody() id: number) {
-  //   return this.chatService.findOne(id);
-  // }
-
-  // @SubscribeMessage('updateChat')
-  // update(@MessageBody() updateChatDto: UpdateChatDto) {
-  //   return this.chatService.update(updateChatDto.id, updateChatDto);
-  // }
-
-  @SubscribeMessage('remove_room')
-  async remove(@MessageBody() roomId: number) {
-    await this.prisma.room.delete({
-      where: { id: roomId },
-      include: { messages: true },
+    await this.prisma.room.update({
+      where: { id: room.id },
+      data: {
+        members: {
+          connect: payload.menbers.map((id) => ({
+            userId_roomId: { userId: id, roomId: room.id },
+          })),
+        },
+      },
     });
-    // return this.chatService.remove(id);
+
+    console.log('update room', room);
+
+    client.join(`room_${room.id}`);
+    console.log('finaly', room);
   }
+
+  /**
+   *
+   *
+   */
+
+  @SubscribeMessage('delete_room')
+  async handleDeleteRoom(client: Socket, payload: DeleteRoomDto) {
+    console.log('payload', payload);
+    const theSocketId = client.id;
+    const room = await this.prisma.room.delete({
+      where: { id: payload.roomId },
+    });
+
+    console.log('room', room);
+    if (!room) {
+      throw new NotFoundException('Delete room failed');
+    }
+    const user = await this.prisma.user.update({
+      where: { id: payload.userId },
+      data: {
+        userInRoom: {
+          disconnect: { id: payload.roomId },
+        },
+        MemberRooms: {
+          disconnect: {
+            userId_roomId: {
+              roomId: payload.roomId,
+              userId: payload.userId,
+            },
+          },
+        },
+        adminRoom: {
+          disconnect: {
+            id: payload.roomId,
+          },
+        },
+        roomConnect: {
+          disconnect: {
+            userId_roomId: {
+              roomId: payload.roomId,
+              userId: payload.userId,
+            },
+          },
+        },
+        messages: {
+          deleteMany: {
+            roomId: payload.roomId,
+          },
+        },
+      },
+    });
+
+    console.log('delete room desconnect user', user);
+    if (!user) {
+      throw new NotFoundException('USer disconnect Room failed');
+    }
+
+    this.server.in(theSocketId).socketsLeave(`room_${payload.roomId}`);
+
+    console.log('finaly', room);
+  }
+
+  /**
+   *
+   *
+   */
+
+  @SubscribeMessage('received_message')
+  handleReceivedMessage(client: Socket, payload: ReceivedMessageDto) {
+    console.log('payload', payload);
+  }
+
+  /**
+   *
+   *
+   */
+
+  @SubscribeMessage('received_message')
+  handleViewMessage(client: Socket, payload: ViewMessageDto) {
+    console.log('payload', payload);
+  }
+
+  /**
+   *
+   *
+   */
 }
