@@ -36,6 +36,27 @@ export class ChatGateway {
    *
    */
 
+  @SubscribeMessage('create_user')
+  async handleCreateUser(client: Socket, payload: { username: string }) {
+    const newUser = await this.prisma.user.create({
+      data: {
+        username: payload.username,
+      },
+    });
+    if (!newUser) {
+      throw new NotFoundException('Error create user');
+    }
+    client.emit('create_user', {
+      username: newUser.username,
+      id: newUser.id,
+    });
+  }
+
+  /**
+   *
+   *
+   */
+
   @SubscribeMessage('event_join')
   async handleJoin(client: Socket, payload: JoinToRoomDto) {
     console.log('payload', payload);
