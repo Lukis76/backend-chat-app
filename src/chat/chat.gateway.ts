@@ -7,6 +7,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChatService } from './chat.service';
+import { JoinToRoomDto } from './dto';
 import { CreateChatDto } from './dto/create-chat.dto';
 
 @WebSocketGateway(4000, {
@@ -21,6 +22,23 @@ export class ChatGateway {
   ) {}
   @WebSocketServer()
   server: Server;
+
+  @SubscribeMessage('jion-to-room')
+  handleJoinToRoom(client: Socket, payload: JoinToRoomDto) {
+    console.log('jion-to-room => ', payload);
+    client.join(`room_${payload.roomId}`);
+  }
+
+  /**
+   *
+   *
+   *
+   *
+   *
+   *
+   *
+   *
+   */
 
   @SubscribeMessage('event_change_room')
   async handleJoinRoom(client: Socket, payload: any) {

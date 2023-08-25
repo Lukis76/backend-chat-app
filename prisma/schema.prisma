@@ -10,30 +10,62 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Room {
-  id Int @id @default(autoincrement())
+model User {
+  id           Int                 @id @default(autoincrement())
+  name         String
+  image        String
+  username     String              @unique
+  userInRoom   Room?               @relation("userInRoom", fields: [userInRoomId], references: [id])
+  userInRoomId Int?
+  usuarioRooms Usuario[]
+  roomConnect  UserToRoomConnect[]
+  adminRoom    Room[]              @relation("admonToRoom")
+  messages     Message[]           @relation("messageToUser")
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
 
-  name String
-
-  users String?
-
-  lastMessage String?
-
-  messages Message[] @relation("RoomMessages")
-
+model Usuario {
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  room      Room     @relation(fields: [roomId], references: [id])
+  roomId    Int
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  @@id([userId, roomId])
+}
+
+model UserToRoomConnect {
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  room      Room     @relation(fields: [roomId], references: [id])
+  roomId    Int
+  createdAt DateTime @default(now())
+
+  @@id([userId, roomId])
+}
+
+model Room {
+  id          Int                 @id @default(autoincrement())
+  name        String
+  lastMessage String?
+  usuarios    Usuario[]
+  userConnect UserToRoomConnect[]
+  userInRoom  User[]              @relation("userInRoom")
+  admin       User?               @relation("admonToRoom", fields: [adminId], references: [id])
+  adminId     Int?
+  messages    Message[]           @relation("messaageToRoom")
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 }
 
 model Message {
-  id Int @id @default(autoincrement())
-
-  body String
-  from String
-
-  room   Room @relation("RoomMessages", fields: [roomId], references: [id])
-  roomId Int
-
+  id        Int      @id @default(autoincrement())
+  content   String
+  user      User?    @relation("messageToUser", fields: [userId], references: [id])
+  userId    Int?
+  room      Room     @relation("messaageToRoom", fields: [roomId], references: [id])
+  roomId    Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
