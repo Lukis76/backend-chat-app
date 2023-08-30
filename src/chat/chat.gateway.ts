@@ -46,10 +46,7 @@ export class ChatGateway {
     if (!newUser) {
       throw new NotFoundException('Error create user');
     }
-    client.emit('create_user', {
-      username: newUser.username,
-      id: newUser.id,
-    });
+    client.emit('create_user', newUser);
   }
 
   /**
@@ -175,10 +172,13 @@ export class ChatGateway {
         name: payload.name,
         // image: payload.image,
         admin: {
-          connect: { id: payload.adminId },
+          connect: { id: +payload.userId },
         },
         userInRoom: {
-          connect: { id: payload.adminId },
+          connect: { id: +payload.userId },
+        },
+        members: {
+          connect: { id: +payload.userId },
         },
       },
     });
@@ -188,18 +188,7 @@ export class ChatGateway {
       throw new NotFoundException('Invalid room');
     }
 
-    await this.prisma.room.update({
-      where: { id: room.id },
-      data: {
-        members: {
-          connect: payload.menbers.map((id) => ({
-            userId_roomId: { userId: id, roomId: room.id },
-          })),
-        },
-      },
-    });
-
-    console.log('update room', room);
+    this.server.emit('create_room', room);
 
     client.join(`room_${room.id}`);
     console.log('finaly', room);
@@ -228,14 +217,17 @@ export class ChatGateway {
         userInRoom: {
           disconnect: { id: payload.roomId },
         },
-        MemberRooms: {
-          disconnect: {
-            userId_roomId: {
-              roomId: payload.roomId,
-              userId: payload.userId,
-            },
-          },
+        memberRoom: {
+          disconnect: { id: payload.roomId },
         },
+        // MemberRooms: {
+        //   disconnect: {
+        //     userId_roomId: {
+        //       roomId: payload.roomId,
+        //       userId: payload.userId,
+        //     },
+        //   },
+        // },
         adminRoom: {
           disconnect: {
             id: payload.roomId,
@@ -282,7 +274,7 @@ export class ChatGateway {
    *
    */
 
-  @SubscribeMessage('received_message')
+  @SubscribeMessage('view_message')
   handleViewMessage(client: Socket, payload: ViewMessageDto) {
     console.log('payload', payload);
   }
